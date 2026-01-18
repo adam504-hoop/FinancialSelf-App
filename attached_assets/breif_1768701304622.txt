@@ -1,0 +1,57 @@
+Proposed Features for "FinancialSelf" (CatatMoney)
+1. CORE FEATURE: "The Smart Allocator" (NLP Automation)
+Stop forcing users to calculate percentages like 58% Needs or 13% Living manually. Let the app handle the math instantly.
+
+How it Works:
+
+Input: Weekly Income: Rp 720,000.
+
+Action: The app automatically splits the funds into virtual "Cards":
+
+🟦 NEEDS (58%): Rp 417,600
+
+🟨 LIVING (13%): Rp 93,600
+
+🟩 PLAYING (17%): Rp 122,400
+
+🚀 BOOSTER (Remainder): Rp 86,400
+
+Why You Need It: It eliminates "payday paralysis"—no more wondering how much to transfer or how much is left to spend.
+
+2. UNIQUE FEATURE: "Variable Budget Slider"
+How it Works: In the "Playing/Date" menu, provide a toggle or slider.
+
+Modes: Frugal (Max 50k) | Normal (Max 100k) | High Roller (Max 150k).
+
+Logic: If the user slides to "High Roller," the app triggers a warning: "Careful! Your Emergency Fund for this week will drop by Rp 50k. Proceed?"
+
+Why You Need It: It visualizes consequences. If you choose to overspend, you see exactly which savings goal is being sacrificed.
+
+3. VISUAL FEATURE: "The Dump Bin" (Wishlist Jar)
+How it Works: A quick-access button titled "Leftover Change."
+
+Input: 20,000 (Saved from gas/bensin).
+
+Target Selection: [ ] New Keyboard | [ ] Monitor | [ ] Emergency Fund.
+
+Visual: Displays a Progress Bar for the goal (e.g., Monitor: 15% Complete).
+
+Why You Need It: Gamifies saving. It turns "frugal living" into a game where you are excited to save gas money just to see the progress bar fill up.
+
+4. PRIORITY FEATURE: "Debt Destroyer" (Debt Tracker)
+How it Works:
+
+Display: Total Debt: Rp 3,500,000.
+
+Action: Every time a "Debt Payment" expense is logged, the bar shrinks.
+
+Reality Check: If a user logs a "New Monitor" expense while debt is still high, a cheeky pop-up appears: "Are you sure? You still owe 2 million, bro."
+
+Why You Need It: Keeps your financial priorities sane and keeps you accountable.
+
+5. ANALYTICS FEATURE: "Net Worth Reality Check"
+Users often feel "broke" when their wallet is empty, even if their savings are growing elsewhere.
+
+How it Works: The main dashboard shows more than just "Wallet Balance." It displays your TOTAL NET WORTH: (SeaBank Balance + Wallet Cash + Envelope Savings) - (Remaining Debt).
+
+Why You Need It: To help you realize your assets are actually growing, even when your physical pocket money feels low.
