@@ -1,47 +1,27 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { User } from "@shared/models/auth";
+// --- FILE INI DIMODIFIKASI UNTUK MODE DESAIN (OFFLINE) ---
+// Tujuannya agar bisa langsung masuk Dashboard tanpa Login/Database.
 
-async function fetchUser(): Promise<User | null> {
-  const response = await fetch("/api/auth/user", {
-    credentials: "include",
-  });
-
-  if (response.status === 401) {
-    return null;
-  }
-
-  if (!response.ok) {
-    throw new Error(`${response.status}: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-async function logout(): Promise<void> {
-  window.location.href = "/api/logout";
-}
+import { useMutation } from "@tanstack/react-query";
 
 export function useAuth() {
-  const queryClient = useQueryClient();
-  const { data: user, isLoading } = useQuery<User | null>({
-    queryKey: ["/api/auth/user"],
-    queryFn: fetchUser,
-    retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-
-  const logoutMutation = useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
-      queryClient.setQueryData(["/api/auth/user"], null);
-    },
-  });
+  // Kita "Hardcode" data usernya agar aplikasi mengira kita sudah login
+  const dummyUser = {
+    id: 1,
+    username: "Juragan",
+    password: "password",
+    isGuest: false
+  };
 
   return {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
-    logout: logoutMutation.mutate,
-    isLoggingOut: logoutMutation.isPending,
+    user: dummyUser,      // <--- Pura-pura ada user
+    isLoading: false,     // <--- Gak perlu loading
+    isAuthenticated: true,
+    
+    // Fungsi Dummy biar tombol gak error kalau dipencet
+    logout: () => console.log("Logout diklik (Mode Desain)"),
+    loginMutation: { 
+      mutate: () => console.log("Login diklik (Mode Desain)"),
+      isPending: false 
+    } 
   };
 }
