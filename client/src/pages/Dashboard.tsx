@@ -1,196 +1,190 @@
-import { useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
-import { useNetWorth } from "@/hooks/use-analytics";
-import { useTransactions, useCreateTransaction } from "@/hooks/use-transactions";
-
-import { Card, Button, Input, Modal } from "@/components/ui-components";
-import { Plus, Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { motion } from "framer-motion";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTransactionSchema } from "@shared/routes";
-import { z } from "zod";
-
-const createSchema = insertTransactionSchema.extend({
-  amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
-});
-
-type TransactionForm = z.infer<typeof createSchema>;
+import { Card, Button } from "@/components/ui-components";
+import { Link } from "wouter";
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  Wallet,
+  PiggyBank,
+  TrendingUp,
+  AlertTriangle,
+} from "lucide-react";
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const { data: netWorth, isLoading: loadingNW } = useNetWorth();
-  const { data: transactions, isLoading: loadingTx } = useTransactions();
-  const createTx = useCreateTransaction();
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<TransactionForm>({
-    resolver: zodResolver(createSchema),
-    defaultValues: {
-      type: "expense",
-      category: "needs",
-      date: new Date().toISOString(), // Default now, schema ignores if omitted, but let's send for completeness if needed or omit
-    }
-  });
+  // --- DATA SIMULASI (Bisa diganti nanti dengan database asli) ---
+  const weeklyIncome = 720000;
 
-  const onSubmit = (data: TransactionForm) => {
-    createTx.mutate(data, {
-      onSuccess: () => {
-        setIsModalOpen(false);
-        reset();
-      }
-    });
+  // Aset kamu (Misal: Saldo di bank + Dompet + Tabungan)
+  const assets = {
+    bank: 500000, // Contoh: Saldo SeaBank
+    cash: 220000, // Contoh: Uang di Dompet
+    booster: 86400, // Tabungan Booster minggu ini
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
+  // Hutang (Sesuai data Debt Destroyer)
+  const totalDebt = 3500000;
+
+  // Hitung Net Worth (Kekayaan Bersih) = Total Aset - Total Hutang
+  const totalAssets = assets.bank + assets.cash + assets.booster;
+  const netWorth = totalAssets - totalDebt;
+
+  // Helper Format Rupiah
+  const formatRupiah = (num: number) => {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }).format(num);
   };
-
-  if (loadingNW || loadingTx) {
-    return (
-      <div className="p-6 flex flex-col gap-4 animate-pulse">
-        <div className="h-32 bg-card rounded-3xl"></div>
-        <div className="h-20 bg-card rounded-2xl"></div>
-        <div className="h-20 bg-card rounded-2xl"></div>
-      </div>
-    );
-  }
-
-  // Calculate generic "Wallet" balance from transactions for display if needed, 
-  // though backend netWorth endpoint provides a breakdown.wallet
-  const walletBalance = netWorth?.breakdown?.wallet ?? 0;
 
   return (
-    <div className="p-4 md:p-6 pb-24 space-y-6 max-w-lg mx-auto">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-display">{getGreeting()}, {user?.firstName || "Friend"}</h1>
-          <p className="text-muted-foreground text-sm">FinancialSelf Snapshot</p>
-        </div>
-        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-          {user?.firstName?.[0] || "U"}
-        </div>
-      </div>
-
-      {/* Net Worth Reality Check */}
-      <Card className="bg-gradient-to-br from-primary/20 via-card to-card border-primary/20 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-        
-        <div className="relative z-10">
-          <p className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-primary" /> Net Worth
-          </p>
-          <h2 className="text-4xl font-display font-bold text-foreground">
-            ${netWorth?.netWorth.toLocaleString()}
-          </h2>
-          
-          <div className="mt-4 flex gap-4 text-xs font-medium">
-            <div className="bg-green-500/10 text-green-400 px-3 py-1.5 rounded-lg flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> Assets: ${netWorth?.totalAssets.toLocaleString()}
-            </div>
-            <div className="bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg flex items-center gap-1">
-              <TrendingDown className="w-3 h-3" /> Debt: ${netWorth?.totalDebt.toLocaleString()}
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Wallet Balance Strip */}
-      <div className="flex items-center justify-between bg-card border border-white/5 rounded-2xl p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-secondary/20 flex items-center justify-center text-secondary">
-            <Wallet className="w-5 h-5" />
-          </div>
+    <div className="p-4 md:p-6 pb-24 space-y-6 max-w-lg mx-auto min-h-screen">
+      {/* 1. Header & Net Worth */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
           <div>
-            <p className="text-xs text-muted-foreground font-medium">Monthly Wallet</p>
-            <p className="text-lg font-bold">${walletBalance.toLocaleString()}</p>
+            <h1 className="text-2xl font-display font-bold">CatatMoney</h1>
+            <p className="text-muted-foreground text-sm">Overview Keuanganmu</p>
+          </div>
+          <div className="bg-primary/10 p-2 rounded-full">
+            <Wallet className="w-6 h-6 text-primary" />
           </div>
         </div>
-        <Button size="icon" className="rounded-xl h-10 w-10" onClick={() => setIsModalOpen(true)}>
-          <Plus className="w-5 h-5" />
-        </Button>
-      </div>
 
-      {/* Recent Transactions */}
-      <div>
-        <h3 className="text-lg font-bold mb-3 px-1">Recent Activity</h3>
-        <div className="space-y-3">
-          {transactions?.slice(0, 5).map((tx) => (
-            <motion.div
-              key={tx.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-card p-4 rounded-2xl border border-white/5 flex justify-between items-center"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  tx.type === 'income' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                }`}>
-                  {tx.type === 'income' ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
-                </div>
-                <div>
-                  <p className="font-bold text-sm">{tx.description}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{tx.category}</p>
-                </div>
-              </div>
-              <p className={`font-mono font-medium ${tx.type === 'income' ? 'text-green-400' : 'text-foreground'}`}>
-                {tx.type === 'income' ? '+' : '-'}${Number(tx.amount).toLocaleString()}
-              </p>
-            </motion.div>
-          ))}
-          {transactions?.length === 0 && (
-            <div className="text-center py-10 text-muted-foreground bg-card/30 rounded-2xl border-dashed border border-white/10">
-              No transactions yet. Add one!
+        {/* Kartu Net Worth Reality Check */}
+        <Card
+          className={`p-6 border-none shadow-lg ${netWorth < 0 ? "bg-destructive/10" : "bg-primary/10"}`}
+        >
+          <div className="flex items-center gap-2 mb-2 opacity-80">
+            <TrendingUp className="w-4 h-4" />
+            <span className="text-sm font-medium uppercase tracking-wider">
+              Net Worth Reality
+            </span>
+          </div>
+          <h2
+            className={`text-4xl font-mono font-bold ${netWorth < 0 ? "text-destructive" : "text-primary"}`}
+          >
+            {formatRupiah(netWorth)}
+          </h2>
+          <p className="text-xs text-muted-foreground mt-2">
+            (Total Aset Rp {totalAssets.toLocaleString()} - Hutang Rp{" "}
+            {totalDebt.toLocaleString()})
+          </p>
+          {netWorth < 0 && (
+            <div className="mt-4 flex items-start gap-2 bg-background/50 p-2 rounded text-xs text-destructive">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>
+                Tenang, minus itu wajar di awal. Fokus hancurkan hutang dulu!
+              </span>
             </div>
           )}
+        </Card>
+      </div>
+
+      {/* 2. Ringkasan Mingguan (Alokasi) */}
+      <div className="space-y-3">
+        <div className="flex justify-between items-center px-1">
+          <h3 className="font-bold">Minggu Ini</h3>
+          <Link href="/allocator">
+            <a className="text-xs text-primary hover:underline">Atur Ulang</a>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {/* Needs */}
+          <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-primary">
+            <span className="text-xs text-muted-foreground">Needs (58%)</span>
+            <span className="text-lg font-bold">
+              {formatRupiah(weeklyIncome * 0.58)}
+            </span>
+          </Card>
+
+          {/* Living */}
+          <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-secondary">
+            <span className="text-xs text-muted-foreground">Living (13%)</span>
+            <span className="text-lg font-bold">
+              {formatRupiah(weeklyIncome * 0.13)}
+            </span>
+          </Card>
+
+          {/* Playing */}
+          <Link href="/playing">
+            <a className="block group">
+              <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-accent group-hover:bg-accent/5 transition-colors">
+                <div className="flex justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Playing (17%)
+                  </span>
+                  <ArrowUpRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                </div>
+                <span className="text-lg font-bold">
+                  {formatRupiah(weeklyIncome * 0.17)}
+                </span>
+              </Card>
+            </a>
+          </Link>
+
+          {/* Booster */}
+          <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-yellow-500">
+            <span className="text-xs text-muted-foreground">Booster (12%)</span>
+            <span className="text-lg font-bold text-yellow-500">
+              {formatRupiah(weeklyIncome * 0.12)}
+            </span>
+          </Card>
         </div>
       </div>
 
-      {/* Add Transaction Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Transaction">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Description</label>
-            <Input {...register("description")} placeholder="Coffee, Salary, etc." />
-            {errors.description && <p className="text-xs text-red-400">{errors.description.message}</p>}
-          </div>
+      {/* 3. Status Hutang */}
+      <div className="space-y-3">
+        <div className="flex justify-between items-center px-1">
+          <h3 className="font-bold text-destructive">Musuh Utama (Hutang)</h3>
+          <Link href="/debt">
+            <a className="text-xs text-destructive hover:underline">
+              Lihat Detail
+            </a>
+          </Link>
+        </div>
+        <Link href="/debt">
+          <a className="block">
+            <Card className="p-5 flex items-center justify-between border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="bg-destructive/20 p-3 rounded-full">
+                  <ArrowDownRight className="w-6 h-6 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Sisa Hutang</p>
+                  <p className="text-xl font-bold text-destructive">
+                    {formatRupiah(totalDebt)}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-destructive/30 text-destructive"
+              >
+                Bayar
+              </Button>
+            </Card>
+          </a>
+        </Link>
+      </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Amount ($)</label>
-            <Input type="number" step="0.01" {...register("amount")} placeholder="0.00" />
-            {errors.amount && <p className="text-xs text-red-400">{errors.amount.message}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Type</label>
-              <select {...register("type")} className="w-full h-12 rounded-xl bg-background border border-input px-3 text-sm focus:ring-2 focus:ring-primary">
-                <option value="expense">Expense</option>
-                <option value="income">Income</option>
-              </select>
+      {/* 4. Celengan Sisa */}
+      <Link href="/dump-bin">
+        <a className="block">
+          <Card className="p-4 bg-secondary/5 border-dashed border-secondary/30 hover:border-secondary transition-colors text-center">
+            <div className="flex flex-col items-center gap-2">
+              <PiggyBank className="w-8 h-8 text-secondary mb-1" />
+              <p className="font-medium text-secondary">
+                Punya Kembalian Receh?
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Masukin ke Dump Bin buat beli Keyboard!
+              </p>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Category</label>
-              <select {...register("category")} className="w-full h-12 rounded-xl bg-background border border-input px-3 text-sm focus:ring-2 focus:ring-primary">
-                <option value="needs">Needs</option>
-                <option value="living">Living</option>
-                <option value="playing">Playing</option>
-                <option value="booster">Booster</option>
-                <option value="debt_payment">Debt Payment</option>
-                <option value="savings">Savings</option>
-              </select>
-            </div>
-          </div>
-
-          <Button type="submit" className="w-full mt-4" isLoading={createTx.isPending}>
-            Add Transaction
-          </Button>
-        </form>
-      </Modal>
+          </Card>
+        </a>
+      </Link>
     </div>
   );
 }
