@@ -81,7 +81,7 @@ export default function Dashboard() {
       </div>
 
       {/* 2. Ringkasan Mingguan (Alokasi) */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex justify-between items-center px-1">
           <h3 className="font-bold">Minggu Ini</h3>
           <Link href="/allocator">
@@ -91,45 +91,85 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-2 gap-3">
           {/* Needs */}
-          <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-primary">
-            <span className="text-xs text-muted-foreground">Needs (58%)</span>
-            <span className="text-lg font-bold">
-              {formatRupiah(weeklyIncome * 0.58)}
-            </span>
-          </Card>
+          <div className="space-y-2">
+            <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-primary h-24">
+              <span className="text-xs text-muted-foreground font-medium">Needs (58%)</span>
+              <span className="text-lg font-bold">
+                {formatRupiah(weeklyIncome * 0.58)}
+              </span>
+            </Card>
+            <div className="px-1 space-y-1">
+              {["Cicilan/Sewa", "Listrik/Air", "Beras/Sembako"].map((item) => (
+                <div key={item} className="flex items-center gap-1.5">
+                  <div className="w-1 h-1 rounded-full bg-primary/40" />
+                  <span className="text-[10px] text-muted-foreground leading-none">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Living */}
-          <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-secondary">
-            <span className="text-xs text-muted-foreground">Living (13%)</span>
-            <span className="text-lg font-bold">
-              {formatRupiah(weeklyIncome * 0.13)}
-            </span>
-          </Card>
+          <div className="space-y-2">
+            <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-secondary h-24">
+              <span className="text-xs text-muted-foreground font-medium">Living (13%)</span>
+              <span className="text-lg font-bold">
+                {formatRupiah(weeklyIncome * 0.13)}
+              </span>
+            </Card>
+            <div className="px-1 space-y-1">
+              {["Makan Luar", "Pulsa/Data", "Sabun/Pembersih"].map((item) => (
+                <div key={item} className="flex items-center gap-1.5">
+                  <div className="w-1 h-1 rounded-full bg-secondary/40" />
+                  <span className="text-[10px] text-muted-foreground leading-none">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Playing */}
-          <Link href="/playing">
-            <a className="block group">
-              <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-accent group-hover:bg-accent/5 transition-colors">
-                <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    Playing (17%)
+          <div className="space-y-2">
+            <Link href="/playing">
+              <a className="block group">
+                <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-accent group-hover:bg-accent/5 transition-colors h-24">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground font-medium">
+                      Playing (17%)
+                    </span>
+                    <ArrowUpRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                  </div>
+                  <span className="text-lg font-bold">
+                    {formatRupiah(weeklyIncome * 0.17)}
                   </span>
-                  <ArrowUpRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                </Card>
+              </a>
+            </Link>
+            <div className="px-1 space-y-1">
+              {["Nonton/Film", "Hobi", "Self-Reward"].map((item) => (
+                <div key={item} className="flex items-center gap-1.5">
+                  <div className="w-1 h-1 rounded-full bg-accent/40" />
+                  <span className="text-[10px] text-muted-foreground leading-none">{item}</span>
                 </div>
-                <span className="text-lg font-bold">
-                  {formatRupiah(weeklyIncome * 0.17)}
-                </span>
-              </Card>
-            </a>
-          </Link>
+              ))}
+            </div>
+          </div>
 
           {/* Booster */}
-          <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-yellow-500">
-            <span className="text-xs text-muted-foreground">Booster (12%)</span>
-            <span className="text-lg font-bold text-yellow-500">
-              {formatRupiah(weeklyIncome * 0.12)}
-            </span>
-          </Card>
+          <div className="space-y-2">
+            <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-yellow-500 h-24">
+              <span className="text-xs text-muted-foreground font-medium">Booster (12%)</span>
+              <span className="text-lg font-bold text-yellow-500">
+                {formatRupiah(weeklyIncome * 0.12)}
+              </span>
+            </Card>
+            <div className="px-1 space-y-1">
+              {["Tabungan", "Investasi", "Dana Darurat"].map((item) => (
+                <div key={item} className="flex items-center gap-1.5">
+                  <div className="w-1 h-1 rounded-full bg-yellow-500/40" />
+                  <span className="text-[10px] text-muted-foreground leading-none">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -172,14 +212,16 @@ export default function Dashboard() {
       {/* 4. Celengan Sisa */}
       <Link href="/dump-bin">
         <a className="block">
-          <Card className="p-4 bg-secondary/5 border-dashed border-secondary/30 hover:border-secondary transition-colors text-center">
+          <Card className="p-5 bg-secondary/5 border-dashed border-secondary/30 hover:border-secondary transition-colors text-center">
             <div className="flex flex-col items-center gap-2">
-              <PiggyBank className="w-8 h-8 text-secondary mb-1" />
-              <p className="font-medium text-secondary">
-                Punya Kembalian Receh?
+              <div className="bg-secondary/10 p-3 rounded-full mb-1">
+                <PiggyBank className="w-8 h-8 text-secondary" />
+              </div>
+              <p className="font-bold text-secondary">
+                Dump Bin (Savings Goals)
               </p>
-              <p className="text-xs text-muted-foreground">
-                Masukin ke Dump Bin buat beli Keyboard!
+              <p className="text-xs text-muted-foreground max-w-[200px] mx-auto">
+                Kumpulin receh sisa jajan di sini buat beli barang impianmu!
               </p>
             </div>
           </Card>
