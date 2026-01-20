@@ -1,232 +1,242 @@
-import { Card, Button } from "@/components/ui-components";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui-components";
 import { Link } from "wouter";
-import {
-  ArrowUpRight,
-  ArrowDownRight,
-  Wallet,
-  PiggyBank,
-  TrendingUp,
-  AlertTriangle,
+import { motion } from "framer-motion"; 
+import { CountUp } from "@/components/CountUp"; 
+import { 
+  Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, 
+  PiggyBank, ShieldCheck, RotateCw, X 
 } from "lucide-react";
 
+// Tipe data biar tidak error
+type DetailItem = { label: string; amount: number };
+type DashboardCategory = {
+  id: string;
+  name: string;
+  percent: string;
+  value: number;
+  color: string;
+  details: DetailItem[];
+};
+
 export default function Dashboard() {
-  // --- DATA SIMULASI (Bisa diganti nanti dengan database asli) ---
-  const weeklyIncome = 720000;
+  const [income, setIncome] = useState(0);
+  const [totalDebt, setTotalDebt] = useState(0);
+  const [flippedCard, setFlippedCard] = useState<string | null>(null);
+  
+  // STATE KATEGORI (Sekarang Kosong Dulu, Nanti Diisi Data Allocator)
+  const [categories, setCategories] = useState<DashboardCategory[]>([]);
+  
+  // State untuk Total Dana Aman (Dihitung Dinamis)
+  const [realTotalMoney, setRealTotalMoney] = useState(0);
 
-  // Aset kamu (Misal: Saldo di bank + Dompet + Tabungan)
-  const assets = {
-    bank: 500000, // Contoh: Saldo SeaBank
-    cash: 220000, // Contoh: Uang di Dompet
-    booster: 86400, // Tabungan Booster minggu ini
-  };
+  useEffect(() => {
+    // 1. AMBIL INCOME
+    const savedIncome = localStorage.getItem("my-income");
+    const valIncome = savedIncome ? Number(savedIncome) : 0;
+    setIncome(valIncome);
 
-  // Hutang (Sesuai data Debt Destroyer)
-  const totalDebt = 3500000;
+    // 2. AMBIL HUTANG
+    const savedDebts = localStorage.getItem("my-debts");
+    if (savedDebts) {
+      const parsedDebts = JSON.parse(savedDebts);
+      const sum = parsedDebts.reduce((acc: number, cur: any) => acc + Number(cur.remainingAmount), 0);
+      setTotalDebt(sum);
+    } else {
+      setTotalDebt(3500000); // Default kalau belum set hutang
+    }
 
-  // Hitung Net Worth (Kekayaan Bersih) = Total Aset - Total Hutang
-  const totalAssets = assets.bank + assets.cash + assets.booster;
-  const netWorth = totalAssets - totalDebt;
+    // 3. AMBIL DATA DARI ALLOCATOR (Integrasi Inti)
+    const savedBudget = localStorage.getItem("my-final-budget");
+    
+    if (savedBudget) {
+        const parsedBudget = JSON.parse(savedBudget);
+        
+        // Transformasi Data: Dari format Allocator ke format Dashboard
+        // Allocator punya "items", Dashboard butuh "details"
+        const formattedCategories = parsedBudget.map((cat: any) => {
+            const catTotal = cat.isAuto 
+                ? cat.items[0].amount // Kalau Booster, ambil langsung
+                : cat.items.reduce((sum: number, item: any) => sum + Number(item.amount), 0);
+            
+            const catPercent = valIncome > 0 ? Math.round((catTotal / valIncome) * 100) : 0;
 
-  // Helper Format Rupiah
-  const formatRupiah = (num: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }).format(num);
-  };
+            return {
+                id: cat.id,
+                name: cat.name,
+                percent: catPercent + "%",
+                value: catTotal,
+                color: cat.color,
+                details: cat.items.map((item: any) => ({
+                    label: item.name || "Item", // Jaga-jaga kalau nama kosong
+                    amount: Number(item.amount)
+                }))
+            };
+        });
+
+        setCategories(formattedCategories);
+
+        // 4. HITUNG TOTAL DANA AMAN SECARA DINAMIS
+        // Rumus: Booster (Tabungan) + Living (Dompet) + Playing (Dompet)
+        // Kita anggap Needs adalah "Tagihan Hilang", sisanya adalah Uang Aman.
+        // Atau lebih spesifik: Ambil kategori id 'booster', 'living', 'playing'.
+        
+        let safeMoney = 0;
+        formattedCategories.forEach((cat: any) => {
+            // Kita jumlahkan semua KECUALI 'needs' (Anggap needs itu tagihan/cicilan)
+            // Kalau kamu mau Needs juga dihitung, hapus kondisi if ini.
+            if (cat.id !== 'needs') { 
+                safeMoney += cat.value;
+            }
+        });
+        setRealTotalMoney(safeMoney);
+
+    } else {
+        // FALLBACK: Kalau User Belum Pernah Buka Allocator
+        // Kita kasih data dummy biar gak error
+        setRealTotalMoney(0);
+        setCategories([]);
+    }
+
+  }, []);
+
+  // Logika Perbandingan Minggu Lalu (Simulasi)
+  const lastWeekTotal = 650000; 
+  const difference = realTotalMoney - lastWeekTotal;
+  const isPositive = difference >= 0;
+
+  const formatRupiah = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num);
+  const formatK = (num: number) => (num / 1000) + "k";
 
   return (
-    <div className="p-4 md:p-6 pb-24 space-y-6 max-w-lg mx-auto min-h-screen">
-      {/* 1. Header & Net Worth */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-display font-bold">CatatMoney</h1>
-            <p className="text-muted-foreground text-sm">Overview Keuanganmu</p>
-          </div>
-          <div className="bg-primary/10 p-2 rounded-full">
-            <Wallet className="w-6 h-6 text-primary" />
-          </div>
+    <div className="p-4 md:p-6 pb-32 space-y-8 max-w-lg mx-auto min-h-screen">
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-display font-bold">CatatMoney</h1>
+          <p className="text-orange-500 text-xs font-medium">Financial Dashboard</p>
         </div>
-
-        {/* Kartu Net Worth Reality Check */}
-        <Card
-          className={`p-6 border-none shadow-lg ${netWorth < 0 ? "bg-destructive/10" : "bg-primary/10"}`}
-        >
-          <div className="flex items-center gap-2 mb-2 opacity-80">
-            <TrendingUp className="w-4 h-4" />
-            <span className="text-sm font-medium uppercase tracking-wider">
-              Net Worth Reality
-            </span>
-          </div>
-          <h2
-            className={`text-4xl font-mono font-bold ${netWorth < 0 ? "text-destructive" : "text-primary"}`}
-          >
-            {formatRupiah(netWorth)}
-          </h2>
-          <p className="text-xs text-muted-foreground mt-2">
-            (Total Aset Rp {totalAssets.toLocaleString()} - Hutang Rp{" "}
-            {totalDebt.toLocaleString()})
-          </p>
-          {netWorth < 0 && (
-            <div className="mt-4 flex items-start gap-2 bg-background/50 p-2 rounded text-xs text-destructive">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>
-                Tenang, minus itu wajar di awal. Fokus hancurkan hutang dulu!
-              </span>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* 2. Ringkasan Mingguan (Alokasi) */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center px-1">
-          <h3 className="font-bold">Minggu Ini</h3>
-          <Link href="/allocator">
-            <a className="text-xs text-primary hover:underline">Atur Ulang</a>
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {/* Needs */}
-          <div className="space-y-2">
-            <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-primary h-24">
-              <span className="text-xs text-muted-foreground font-medium">Needs (58%)</span>
-              <span className="text-lg font-bold">
-                {formatRupiah(weeklyIncome * 0.58)}
-              </span>
-            </Card>
-            <div className="px-1 space-y-1">
-              {["Cicilan/Sewa", "Listrik/Air", "Beras/Sembako"].map((item) => (
-                <div key={item} className="flex items-center gap-1.5">
-                  <div className="w-1 h-1 rounded-full bg-primary/40" />
-                  <span className="text-[10px] text-muted-foreground leading-none">{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Living */}
-          <div className="space-y-2">
-            <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-secondary h-24">
-              <span className="text-xs text-muted-foreground font-medium">Living (13%)</span>
-              <span className="text-lg font-bold">
-                {formatRupiah(weeklyIncome * 0.13)}
-              </span>
-            </Card>
-            <div className="px-1 space-y-1">
-              {["Makan Luar", "Pulsa/Data", "Sabun/Pembersih"].map((item) => (
-                <div key={item} className="flex items-center gap-1.5">
-                  <div className="w-1 h-1 rounded-full bg-secondary/40" />
-                  <span className="text-[10px] text-muted-foreground leading-none">{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Playing */}
-          <div className="space-y-2">
-            <Link href="/playing">
-              <a className="block group">
-                <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-accent group-hover:bg-accent/5 transition-colors h-24">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-muted-foreground font-medium">
-                      Playing (17%)
-                    </span>
-                    <ArrowUpRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                  </div>
-                  <span className="text-lg font-bold">
-                    {formatRupiah(weeklyIncome * 0.17)}
-                  </span>
-                </Card>
-              </a>
-            </Link>
-            <div className="px-1 space-y-1">
-              {["Nonton/Film", "Hobi", "Self-Reward"].map((item) => (
-                <div key={item} className="flex items-center gap-1.5">
-                  <div className="w-1 h-1 rounded-full bg-accent/40" />
-                  <span className="text-[10px] text-muted-foreground leading-none">{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Booster */}
-          <div className="space-y-2">
-            <Card className="p-4 flex flex-col justify-between bg-card border-l-4 border-l-yellow-500 h-24">
-              <span className="text-xs text-muted-foreground font-medium">Booster (12%)</span>
-              <span className="text-lg font-bold text-yellow-500">
-                {formatRupiah(weeklyIncome * 0.12)}
-              </span>
-            </Card>
-            <div className="px-1 space-y-1">
-              {["Tabungan", "Investasi", "Dana Darurat"].map((item) => (
-                <div key={item} className="flex items-center gap-1.5">
-                  <div className="w-1 h-1 rounded-full bg-yellow-500/40" />
-                  <span className="text-[10px] text-muted-foreground leading-none">{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="bg-white/5 p-2 rounded-xl border border-white/10">
+          <Wallet className="w-5 h-5 text-purple-400" />
         </div>
       </div>
 
-      {/* 3. Status Hutang */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center px-1">
-          <h3 className="font-bold text-destructive">Musuh Utama (Hutang)</h3>
-          <Link href="/debt">
-            <a className="text-xs text-destructive hover:underline">
-              Lihat Detail
-            </a>
-          </Link>
+      {/* --- TOTAL DANA AMAN --- */}
+      <div className="bg-[#18181b] p-6 rounded-3xl border border-blue-500/20 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-8 bg-blue-500/10 blur-2xl rounded-full -mr-10 -mt-10"></div>
+        <div className="flex items-center gap-2 mb-2 text-blue-400">
+            <ShieldCheck className="w-4 h-4" />
+            <span className="text-xs uppercase tracking-wider font-bold">Total Dana Aman</span>
         </div>
+        
+        <h2 className="text-4xl font-sans font-medium tracking-tight mb-3 text-white">
+            <CountUp value={realTotalMoney} prefix="Rp " />
+        </h2>
+        
+        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
+            isPositive ? "bg-green-500/10 border-green-500/20 text-green-400" : "bg-red-500/10 border-red-500/20 text-red-400"
+        }`}>
+            {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+            <span>{isPositive ? "Naik" : "Turun"} {formatRupiah(Math.abs(difference))}</span>
+        </div>
+      </div>
+
+      {/* --- ALOKASI DANA (DATA DARI ALLOCATOR) --- */}
+      <div>
+        <div className="flex justify-between items-center mb-3 px-1">
+            <h3 className="font-bold text-lg">Alokasi Dana</h3>
+            <Link href="/allocator"><a className="text-xs text-purple-400 font-medium hover:text-purple-300">Atur Ulang</a></Link>
+        </div>
+
+        {categories.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3">
+                {categories.map((cat) => (
+                <div key={cat.id} className="relative h-[160px] group cursor-pointer" 
+                    onClick={() => setFlippedCard(flippedCard === cat.id ? null : cat.id)}
+                    style={{ perspective: "1000px" }} 
+                >
+                    <motion.div 
+                        className="w-full h-full relative"
+                        initial={false}
+                        animate={{ rotateY: flippedCard === cat.id ? 180 : 0 }}
+                        transition={{ duration: 0.6, ease: "easeInOut" }}
+                        style={{ transformStyle: "preserve-3d" }}
+                    >
+                        {/* FRONT */}
+                        <div className="absolute inset-0 bg-[#18181b] p-4 rounded-3xl border-l-4 flex flex-col justify-between"
+                            style={{ borderLeftColor: cat.color, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+                        >
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="text-xs text-muted-foreground mb-1">{cat.name}</p>
+                                    <p className="text-lg font-bold font-mono tracking-tight">
+                                        <CountUp value={cat.value} prefix="Rp " />
+                                    </p>
+                                </div>
+                                <RotateCw className="w-4 h-4 text-muted-foreground/30 animate-pulse" />
+                            </div>
+                            <div className="mt-auto">
+                                <span className="text-[10px] bg-white/5 px-2 py-1 rounded-full text-muted-foreground">{cat.percent} dari Gaji</span>
+                            </div>
+                        </div>
+
+                        {/* BACK (Detail List) */}
+                        <div className="absolute inset-0 bg-[#27272a] p-3 rounded-3xl border border-white/10 flex flex-col overflow-hidden"
+                            style={{ transform: "rotateY(180deg)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+                        >
+                            <div className="flex justify-between items-center mb-2 border-b border-white/10 pb-1">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground truncate pr-2">Rincian {cat.name}</p>
+                                <X className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                            </div>
+                            <ul className="space-y-1.5 overflow-y-auto pr-1 custom-scrollbar">
+                                {cat.details.map((item, idx) => (
+                                    <li key={idx} className="flex justify-between items-center text-[10px]">
+                                        <span className="text-gray-400 truncate max-w-[70px]">{item.label}</span>
+                                        <span className="font-mono font-medium text-white">{formatK(item.amount)}</span>
+                                    </li>
+                                ))}
+                                {cat.details.length === 0 && (
+                                    <li className="text-[10px] text-muted-foreground text-center italic mt-4">Belum ada item</li>
+                                )}
+                            </ul>
+                        </div>
+                    </motion.div>
+                </div>
+                ))}
+            </div>
+        ) : (
+            // Tampilan kalau data belum ada
+            <div className="text-center p-8 bg-white/5 rounded-3xl border border-dashed border-white/10">
+                <p className="text-sm text-muted-foreground mb-2">Belum ada data alokasi.</p>
+                <Link href="/allocator">
+                    <Button variant="outline" size="sm">Buat Alokasi Sekarang</Button>
+                </Link>
+            </div>
+        )}
+      </div>
+
+      {/* FOOTER */}
+      <div className="grid grid-cols-1 gap-3 pt-4">
         <Link href="/debt">
-          <a className="block">
-            <Card className="p-5 flex items-center justify-between border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="bg-destructive/20 p-3 rounded-full">
-                  <ArrowDownRight className="w-6 h-6 text-destructive" />
+            <a className="block">
+                <div className="bg-[#18181b] p-5 rounded-3xl border border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500"><ArrowDownRight className="w-5 h-5" /></div>
+                        <div><p className="text-xs text-muted-foreground">Sisa Kewajiban</p><p className="text-xl font-medium text-red-500">{formatRupiah(totalDebt)}</p></div>
+                    </div>
+                    <Button size="sm" variant="outline" className="text-red-500 border-red-500/20 text-xs h-8">Bayar</Button>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Sisa Hutang</p>
-                  <p className="text-xl font-bold text-destructive">
-                    {formatRupiah(totalDebt)}
-                  </p>
+            </a>
+        </Link>
+        <Link href="/dump-bin">
+            <a className="block">
+                <div className="bg-[#042f2e] p-6 rounded-3xl border border-teal-800/50 text-center space-y-3">
+                    <div className="w-12 h-12 mx-auto rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400"><PiggyBank className="w-6 h-6" /></div>
+                    <div><h3 className="text-teal-400 font-medium text-sm mb-1">Dump Bin</h3><p className="text-xs text-teal-200/60">Tempat buang sisa recehan.</p></div>
                 </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-destructive/30 text-destructive"
-              >
-                Bayar
-              </Button>
-            </Card>
-          </a>
+            </a>
         </Link>
       </div>
-
-      {/* 4. Celengan Sisa */}
-      <Link href="/dump-bin">
-        <a className="block">
-          <Card className="p-5 bg-secondary/5 border-dashed border-secondary/30 hover:border-secondary transition-colors text-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="bg-secondary/10 p-3 rounded-full mb-1">
-                <PiggyBank className="w-8 h-8 text-secondary" />
-              </div>
-              <p className="font-bold text-secondary">
-                Dump Bin (Savings Goals)
-              </p>
-              <p className="text-xs text-muted-foreground max-w-[200px] mx-auto">
-                Kumpulin receh sisa jajan di sini buat beli barang impianmu!
-              </p>
-            </div>
-          </Card>
-        </a>
-      </Link>
     </div>
   );
 }
