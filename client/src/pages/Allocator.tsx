@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, Button, Input, Modal } from "@/components/ui-components"; 
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { Save, Plus, Trash2, Edit2, Sparkles } from "lucide-react"; 
+import { Save, Plus, Trash2, Sparkles } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import { CountUp } from "@/components/CountUp";
 
@@ -22,7 +22,9 @@ type Category = {
 export default function Allocator() {
   const { toast } = useToast();
 
-  const [income, setIncome] = useState(720000);
+  // STATE GAJI SEKARANG STRING AGAR BISA ADA TITIKNYA
+  const [incomeStr, setIncomeStr] = useState("720.000"); 
+
   const [categories, setCategories] = useState<Category[]>([
     { 
       id: "needs", name: "Needs (Wajib)", color: "#3b82f6", 
@@ -41,11 +43,35 @@ export default function Allocator() {
   const [selectedCatIndex, setSelectedCatIndex] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // --- HELPER FORMATTER ---
+  const formatNumber = (num: number) => new Intl.NumberFormat('id-ID').format(num);
+  
+  const cleanNumber = (str: string) => {
+      const cleaned = str.replace(/\D/g, ""); // Hapus semua kecuali angka
+      return cleaned === "" ? 0 : Number(cleaned);
+  };
+
+  const handleIncomeChange = (val: string) => {
+      // Hapus non-angka, lalu format balik dengan titik
+      const raw = val.replace(/\D/g, "");
+      if (raw === "") {
+          setIncomeStr("");
+      } else {
+          setIncomeStr(formatNumber(Number(raw)));
+      }
+  };
+
+  // Hitung income murni (number) untuk kalkulasi
+  const incomeValue = cleanNumber(incomeStr);
+
+  // LOAD DATA
   useEffect(() => {
     const savedIncome = localStorage.getItem("my-income");
     const savedCats = localStorage.getItem("my-categories");
     
-    if (savedIncome) setIncome(Number(savedIncome));
+    if (savedIncome) {
+        setIncomeStr(formatNumber(Number(savedIncome))); // Load dan format
+    }
     if (savedCats) {
         const parsed = JSON.parse(savedCats).filter((c: Category) => c.id !== 'booster');
         setCategories(parsed);
@@ -57,7 +83,7 @@ export default function Allocator() {
   };
 
   const totalManualExpenses = categories.reduce((sum, cat) => sum + getCategoryTotal(cat), 0);
-  const boosterAmount = Math.max(0, income - totalManualExpenses);
+  const boosterAmount = Math.max(0, incomeValue - totalManualExpenses);
   
   const boosterCategory: Category = {
       id: "booster", name: "Booster (Otomatis)", color: "#f59e0b", isAuto: true,
@@ -68,19 +94,19 @@ export default function Allocator() {
   if (boosterAmount > 0) allCategoriesForChart.push(boosterCategory);
 
   const handleSave = () => {
-    localStorage.setItem("my-income", income.toString());
+    localStorage.setItem("my-income", incomeValue.toString());
     localStorage.setItem("my-categories", JSON.stringify(categories));
     localStorage.setItem("my-final-budget", JSON.stringify([...categories, ...(boosterAmount > 0 ? [boosterCategory] : [])]));
     
     const simpleAllocations = {
-        needs: getCategoryTotal(categories[0] || {items:[]}),
-        living: getCategoryTotal(categories[1] || {items:[]}),
-        playing: getCategoryTotal(categories[2] || {items:[]}),
+        needs: getCategoryTotal(categories.find(c => c.id === 'needs') || {items:[], id:'temp', name:'', color:''}),
+        living: getCategoryTotal(categories.find(c => c.id === 'living') || {items:[], id:'temp', name:'', color:''}),
+        playing: getCategoryTotal(categories.find(c => c.id === 'playing') || {items:[], id:'temp', name:'', color:''}),
         booster: boosterAmount,
     };
     localStorage.setItem("my-allocations", JSON.stringify(simpleAllocations));
 
-    toast({ title: "Berhasil Disimpan!", description: `Gaji Rp ${formatRupiah(income)} telah dialokasikan.` });
+    toast({ title: "Berhasil Disimpan!", description: `Gaji Rp ${incomeStr} telah dialokasikan.` });
   };
 
   // CRUD
@@ -118,11 +144,20 @@ export default function Allocator() {
     setCategories(newCats);
   };
 
-  const updateItem = (itemIndex: number, field: 'name' | 'amount', value: any) => {
+  // UPDATE ITEM DENGAN FORMATTER
+  const updateItemName = (itemIndex: number, val: string) => {
     if (selectedCatIndex === null) return;
     const newCats = [...categories];
-    // @ts-ignore
-    newCats[selectedCatIndex].items[itemIndex][field] = value;
+    newCats[selectedCatIndex].items[itemIndex].name = val;
+    setCategories(newCats);
+  };
+
+  const updateItemAmount = (itemIndex: number, val: string) => {
+    if (selectedCatIndex === null) return;
+    const newCats = [...categories];
+    // Simpan angka murni ke state, tapi inputnya nanti bisa diformat kalau mau
+    // Untuk simplifikasi, di sini kita simpan number langsung dari cleanNumber
+    newCats[selectedCatIndex].items[itemIndex].amount = cleanNumber(val);
     setCategories(newCats);
   };
 
@@ -152,7 +187,7 @@ export default function Allocator() {
           <p className="text-xs text-muted-foreground">Booster otomatis menghabiskan sisa uang.</p>
       </div>
 
-      {/* Input Gaji + Tombol Save Kotak (Versi HTML Asli) */}
+      {/* Input Gaji + Tombol Save */}
       <Card className="p-4 border-primary/20 bg-primary/5">
         <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
           Pemasukan Minggu Ini
@@ -160,14 +195,14 @@ export default function Allocator() {
         
         <div className="flex gap-2 h-12">
             <Input 
-                type="number" 
-                value={income} 
-                onChange={(e) => setIncome(Number(e.target.value))}
+                type="text" 
+                inputMode="numeric"
+                value={incomeStr} 
+                onChange={(e) => handleIncomeChange(e.target.value)}
                 className="flex-1 text-2xl font-bold font-mono h-full bg-background border-primary/30"
                 placeholder="0"
             />
             
-            {/* KITA PAKAI BUTTON BIASA BIAR IKONNYA PASTI MUNCUL */}
             <button 
                 onClick={handleSave} 
                 className="h-12 w-12 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center justify-center shadow-lg transition-colors shrink-0"
@@ -186,17 +221,15 @@ export default function Allocator() {
                 Total Plot
             </span>
             
-            {/* INI DIA ANIMASINYA */}
             <span className={`text-sm font-black font-mono ${
-                income > 600000 ? 'text-emerald-600' : 'text-red-500'
+                incomeValue > 600000 ? 'text-emerald-600' : 'text-red-500'
             }`}>
-                <CountUp value={income} prefix="Rp " />
+                <CountUp value={incomeValue} prefix="Rp " />
             </span>
         </div>
         
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-             {/* ... (Pie Chart sama seperti sebelumnya) ... */}
             <Pie data={chartData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={4} cornerRadius={4} dataKey="value">
               {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
             </Pie>
@@ -209,7 +242,7 @@ export default function Allocator() {
         {/* MANUAL */}
         {categories.map((cat, index) => {
             const total = getCategoryTotal(cat);
-            const percent = income > 0 ? Math.round((total / income) * 100) : 0;
+            const percent = incomeValue > 0 ? Math.round((total / incomeValue) * 100) : 0;
             return (
                 <div key={cat.id} onClick={() => handleOpenModal(index)} className="cursor-pointer group">
                     <Card className="p-4 border-l-4 hover:bg-accent/5 transition-all relative overflow-hidden" style={{ borderLeftColor: cat.color }}>
@@ -250,7 +283,7 @@ export default function Allocator() {
                         </div>
                         <div className="text-right">
                             <p className="font-mono font-bold text-amber-600">{formatRupiah(boosterAmount)}</p>
-                            <p className="text-xs text-muted-foreground">{Math.round((boosterAmount / income) * 100)}%</p>
+                            <p className="text-xs text-muted-foreground">{Math.round((boosterAmount / incomeValue) * 100)}%</p>
                         </div>
                     </div>
                 </Card>
@@ -287,16 +320,46 @@ export default function Allocator() {
                 {/* Items */}
                 <div className="space-y-2">
                     <label className="text-xs font-bold text-muted-foreground uppercase">Item</label>
-                    {categories[selectedCatIndex].items.map((item, idx) => (
-                        <div key={item.id} className="flex gap-2 items-center">
-                            <Input placeholder="Nama" value={item.name} onChange={(e) => updateItem(idx, 'name', e.target.value)} className="flex-1" />
-                            <div className="relative w-32">
-                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
-                                <Input type="number" value={item.amount} onChange={(e) => updateItem(idx, 'amount', Number(e.target.value))} className="pl-8 text-right font-mono" />
+                    {categories[selectedCatIndex].items.map((item, idx) => {
+                        // Trik: Convert angka ke string format rupiah saat render input
+                        // Agar user lihat "20.000" bukan "20000"
+                        // Tapi saat edit, kita pakai handleIncomeChange style
+                        
+                        // NOTE: Karena kita menyimpan number, kita perlu format on-the-fly untuk value input
+                        // Ini sedikit tricky kalau user sedang mengetik.
+                        // Cara paling aman: Gunakan Uncontrolled Input atau Input khusus.
+                        // TAPI untuk sekarang, kita gunakan input text biasa yang memformat saat onBlur atau onChange.
+                        
+                        return (
+                            <div key={item.id} className="flex gap-2 items-center">
+                                <Input 
+                                    placeholder="Nama" 
+                                    value={item.name} 
+                                    onChange={(e) => updateItemName(idx, e.target.value)} 
+                                    className="flex-1" 
+                                />
+                                <div className="relative w-32">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
+                                    <Input 
+                                        type="text" 
+                                        inputMode="numeric"
+                                        // Kita tampilkan format rupiah, tapi kalau 0 kosongin aja biar rapi
+                                        value={item.amount === 0 ? "" : formatNumber(item.amount)} 
+                                        
+                                        // Saat ngetik, kita bersihkan titik, simpan number
+                                        // Karena value di atas diformat ulang dari number, kursor mungkin lompat di browser tertentu
+                                        // Tapi ini solusi tercepat tanpa library tambahan.
+                                        onChange={(e) => updateItemAmount(idx, e.target.value)} 
+                                        
+                                        className="pl-8 text-right font-mono" 
+                                    />
+                                </div>
+                                <button onClick={() => deleteItem(idx)} className="text-red-500 hover:bg-red-500/10 p-2 rounded-lg">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
                             </div>
-                            <button onClick={() => deleteItem(idx)} className="text-red-500 hover:bg-red-500/10 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
                 <Button variant="outline" className="w-full border-dashed border-2" onClick={addItem}><Plus className="w-4 h-4 mr-2" /> Tambah Item</Button>
                 
