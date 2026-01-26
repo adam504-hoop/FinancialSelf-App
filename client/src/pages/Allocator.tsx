@@ -3,7 +3,8 @@ import { Card, Button, Input, Modal } from "@/components/ui-components";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Save, Plus, Trash2, Sparkles } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
-import { CountUp } from "@/components/CountUp";
+// Pastikan file ini ada, kalau error hapus baris ini dan ganti CountUp di bawah dengan text biasa
+import { CountUp } from "@/components/CountUp"; 
 
 type AllocationItem = {
   id: string;
@@ -155,8 +156,6 @@ export default function Allocator() {
   const updateItemAmount = (itemIndex: number, val: string) => {
     if (selectedCatIndex === null) return;
     const newCats = [...categories];
-    // Simpan angka murni ke state, tapi inputnya nanti bisa diformat kalau mau
-    // Untuk simplifikasi, di sini kita simpan number langsung dari cleanNumber
     newCats[selectedCatIndex].items[itemIndex].amount = cleanNumber(val);
     setCategories(newCats);
   };
@@ -246,7 +245,7 @@ export default function Allocator() {
             return (
                 <div key={cat.id} onClick={() => handleOpenModal(index)} className="cursor-pointer group">
                     <Card className="p-4 border-l-4 hover:bg-accent/5 transition-all relative overflow-hidden" style={{ borderLeftColor: cat.color }}>
-                         <div className="flex justify-between items-center relative z-10">
+                          <div className="flex justify-between items-center relative z-10">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm" style={{ backgroundColor: cat.color }}>
                                     {cat.name.charAt(0)}
@@ -321,15 +320,6 @@ export default function Allocator() {
                 <div className="space-y-2">
                     <label className="text-xs font-bold text-muted-foreground uppercase">Item</label>
                     {categories[selectedCatIndex].items.map((item, idx) => {
-                        // Trik: Convert angka ke string format rupiah saat render input
-                        // Agar user lihat "20.000" bukan "20000"
-                        // Tapi saat edit, kita pakai handleIncomeChange style
-                        
-                        // NOTE: Karena kita menyimpan number, kita perlu format on-the-fly untuk value input
-                        // Ini sedikit tricky kalau user sedang mengetik.
-                        // Cara paling aman: Gunakan Uncontrolled Input atau Input khusus.
-                        // TAPI untuk sekarang, kita gunakan input text biasa yang memformat saat onBlur atau onChange.
-                        
                         return (
                             <div key={item.id} className="flex gap-2 items-center">
                                 <Input 
@@ -343,14 +333,8 @@ export default function Allocator() {
                                     <Input 
                                         type="text" 
                                         inputMode="numeric"
-                                        // Kita tampilkan format rupiah, tapi kalau 0 kosongin aja biar rapi
                                         value={item.amount === 0 ? "" : formatNumber(item.amount)} 
-                                        
-                                        // Saat ngetik, kita bersihkan titik, simpan number
-                                        // Karena value di atas diformat ulang dari number, kursor mungkin lompat di browser tertentu
-                                        // Tapi ini solusi tercepat tanpa library tambahan.
                                         onChange={(e) => updateItemAmount(idx, e.target.value)} 
-                                        
                                         className="pl-8 text-right font-mono" 
                                     />
                                 </div>

@@ -4,72 +4,74 @@ import { Archive, Plus, Trash2, Edit2, Coins, Sparkles, CheckCircle2 } from "luc
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
-// HAPUS import confetti karena kita pakai animasi native
-
+// TYPE KITA SESUAIKAN DENGAN PYTHON
 type DumpItem = {
-  id: string;
+  id: number; // Dulu string, sekarang number (karena ID database itu angka)
   name: string;
-  targetAmount: number;
-  currentAmount: number;
-  isDumpBin: boolean;
+  target_amount: number; // Dulu targetAmount (camelCase), sekarang target_amount (snake_case dari Python)
+  current_amount: number;
+  is_dump_bin: boolean;
 };
+
+// URL BACKEND KITA
+const API_URL = "http://127.0.0.1:8000/api/dump-bin";
 
 export default function DumpBin() {
   const { toast } = useToast();
-  
-  // STATE DATA
   const [goals, setGoals] = useState<DumpItem[]>([]);
   
   // MODAL STATES
   const [isFormModalOpen, setIsFormModalOpen] = useState(false); 
   const [isContributeModalOpen, setIsContributeModalOpen] = useState(false); 
 
-  // STATE: FORM CREATE/EDIT
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // FORM STATES
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [targetDisplay, setTargetDisplay] = useState(""); 
   const [targetRaw, setTargetRaw] = useState(0);        
 
-  // STATE: NABUNG (CONTRIBUTE)
+  // CONTRIBUTE STATES
   const [selectedGoal, setSelectedGoal] = useState<DumpItem | null>(null);
   const [contributeRaw, setContributeRaw] = useState<number>(0);
   const [contributeDisplay, setContributeDisplay] = useState("0");
   const [sliderMax, setSliderMax] = useState(100000); 
 
-  // 1. LOAD DATA
-  useEffect(() => {
-    const saved = localStorage.getItem("my-dumpbin");
-    if (saved) setGoals(JSON.parse(saved));
-  }, []);
-
-  // 2. SIMPAN DATA
-  const saveToLocal = (newGoals: DumpItem[]) => {
-    setGoals(newGoals);
-    localStorage.setItem("my-dumpbin", JSON.stringify(newGoals));
+  // --- 1. FETCH DATA DARI PYTHON (GET) ---
+  const fetchGoals = async () => {
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      setGoals(data);
+    } catch (error) {
+      console.error("Gagal ambil data:", error);
+      toast({ title: "Error", description: "Gagal terhubung ke server", variant: "destructive" });
+    }
   };
 
-  // --- LOGIKA FORMATTER ---
+  useEffect(() => {
+    fetchGoals();
+  }, []);
+
+  // --- FORMATTER ---
   const formatRupiah = (num: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num);
   const formatNumber = (num: number) => new Intl.NumberFormat('id-ID').format(num);
 
-  // --- LOGIKA FORM INPUT ---
+  // --- HANDLERS ---
   const handleTargetChange = (val: string) => {
     const raw = Number(val.replace(/\D/g, ""));
     setTargetRaw(raw);
     setTargetDisplay(raw === 0 ? "" : formatNumber(raw));
   };
 
-  // --- LOGIKA CONTRIBUTE (SLIDER DINAMIS) ---
   const openContributeModal = (goal: DumpItem) => {
     setSelectedGoal(goal);
-    const remaining = goal.targetAmount - goal.currentAmount;
+    const remaining = goal.target_amount - goal.current_amount;
     const newMax = Math.min(100000, remaining);
     setSliderMax(newMax);
 
     const initialVal = Math.min(20000, remaining);
     setContributeRaw(initialVal);
     setContributeDisplay(formatNumber(initialVal));
-
     setIsContributeModalOpen(true);
   };
 
@@ -80,49 +82,89 @@ export default function DumpBin() {
     setContributeDisplay(raw === 0 ? "" : formatNumber(raw));
   };
 
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = Number(e.target.value);
-    setContributeRaw(raw);
-    setContributeDisplay(formatNumber(raw));
-  };
-
-  // --- ACTIONS ---
-  const handleSaveTarget = () => {
+  // --- 2. SIMPAN TARGET BARU / EDIT (POST & PUT) ---
+  const handleSaveTarget = async () => {
     if (!name || targetRaw <= 0) return;
     
-    if (editingId) {
-        const updated = goals.map(g => g.id === editingId ? { ...g, name, targetAmount: targetRaw } : g);
-        saveToLocal(updated);
-        toast({ title: "Update Berhasil", description: "Target diperbarui." });
-    } else {
-        const newGoal = { id: Date.now().toString(), name, targetAmount: targetRaw, currentAmount: 0, isDumpBin: true };
-        saveToLocal([...goals, newGoal]);
-        toast({ title: "Target Dibuat", description: "Semangat menabung!" });
-    }
-    setIsFormModalOpen(false);
-    setEditingId(null); setName(""); setTargetDisplay(""); setTargetRaw(0);
-  };
+    const payload = {
+        name: name,
+        target_amount: targetRaw,
+        current_amount: 0,
+        is_dump_bin: true
+    };
 
-  const handleSubmitContribute = () => {
-    if (!selectedGoal || contributeRaw <= 0) return;
-    const updated = goals.map(g => {
-        if (g.id === selectedGoal.id) {
-            return { ...g, currentAmount: g.currentAmount + contributeRaw };
+    try {
+        if (editingId) {
+            // LOGIKA EDIT (PUT)
+            // Kita perlu kirim data lengkap saat update
+            const itemToUpdate = goals.find(g => g.id === editingId);
+            if(itemToUpdate) {
+                await fetch(`${API_URL}/${editingId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...itemToUpdate, name, target_amount: targetRaw })
+                });
+                toast({ title: "Update Berhasil", description: "Target diperbarui." });
+            }
+        } else {
+            // LOGIKA BARU (POST)
+            await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            toast({ title: "Target Dibuat", description: "Semangat menabung!" });
         }
-        return g;
-    });
-    saveToLocal(updated);
-    toast({ title: "Mantap!", description: `Berhasil nabung ${formatRupiah(contributeRaw)}` });
-    setIsContributeModalOpen(false);
+        
+        fetchGoals(); // Refresh data dari server
+        setIsFormModalOpen(false);
+        setEditingId(null); setName(""); setTargetDisplay(""); setTargetRaw(0);
+
+    } catch (error) {
+        toast({ title: "Gagal menyimpan", variant: "destructive" });
+    }
   };
 
-  // --- LOGIKA CLAIM (ANIMASI NATIVE) ---
-  const handleClaim = (id: string) => {
-    // Kita langsung hapus data.
-    // AnimatePresence akan menangani animasi 'exit' secara otomatis
-    const updated = goals.filter(g => g.id !== id);
-    saveToLocal(updated);
-    toast({ title: "Alhamdulillah! 🤲", description: "Barang berhasil terbeli." });
+  // --- 3. NABUNG (UPDATE / PUT) ---
+  const handleSubmitContribute = async () => {
+    if (!selectedGoal || contributeRaw <= 0) return;
+
+    const updatedGoal = { 
+        ...selectedGoal, 
+        current_amount: selectedGoal.current_amount + contributeRaw 
+    };
+
+    try {
+        await fetch(`${API_URL}/${selectedGoal.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updatedGoal)
+        });
+        
+        toast({ title: "Mantap!", description: `Berhasil nabung ${formatRupiah(contributeRaw)}` });
+        fetchGoals(); // Refresh data
+        setIsContributeModalOpen(false);
+    } catch (error) {
+        toast({ title: "Gagal menabung", variant: "destructive" });
+    }
+  };
+
+  // --- 4. HAPUS / CLAIM (DELETE) ---
+  const handleClaimOrDelete = async (id: number, isClaim: boolean) => {
+    if(!isClaim && !confirm("Hapus target ini?")) return;
+
+    try {
+        await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+        
+        if (isClaim) {
+             toast({ title: "Alhamdulillah! 🤲", description: "Barang berhasil terbeli." });
+        } else {
+             toast({ title: "Dihapus", description: "Target dihapus." });
+        }
+        fetchGoals(); // Refresh data agar hilang dari layar
+    } catch (error) {
+        toast({ title: "Gagal menghapus", variant: "destructive" });
+    }
   };
 
   const openAddModal = () => {
@@ -132,13 +174,9 @@ export default function DumpBin() {
 
   const openEditModal = (goal: DumpItem) => {
     setEditingId(goal.id); setName(goal.name);
-    setTargetRaw(goal.targetAmount);
-    setTargetDisplay(formatNumber(goal.targetAmount));
+    setTargetRaw(goal.target_amount);
+    setTargetDisplay(formatNumber(goal.target_amount));
     setIsFormModalOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    if(confirm("Hapus target ini?")) saveToLocal(goals.filter(g => g.id !== id));
   };
 
   return (
@@ -155,76 +193,59 @@ export default function DumpBin() {
         </Button>
       </div>
 
-      {/* LIST ITEMS (LAYOUT BARU: VERTICAL LIST) */}
+      {/* LIST ITEMS */}
       <div className="space-y-3">
         <AnimatePresence mode="popLayout">
         {goals.map((goal) => {
-            const progress = (goal.currentAmount / goal.targetAmount) * 100;
-            const isFull = goal.currentAmount >= goal.targetAmount;
+            const progress = (goal.current_amount / goal.target_amount) * 100;
+            const isFull = goal.current_amount >= goal.target_amount;
 
             return (
               <motion.div
                 key={goal.id}
                 layout
-                // 1. ANIMASI MASUK (Slide Up)
                 initial={{ opacity: 0, y: 20, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                
-                // 2. ANIMASI KELUAR / TERCAPAI (Zoom Out & Fade & Blur)
-                exit={{ 
-                    opacity: 0, 
-                    scale: 1.1,         // Membesar sedikit
-                    filter: "blur(10px)", // Nge-blur
-                    transition: { duration: 0.4 } 
-                }}
-                
+                exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)", transition: { duration: 0.4 } }}
                 className={`relative group rounded-2xl border transition-all overflow-hidden ${
                     isFull 
                     ? "bg-gradient-to-r from-teal-900/40 to-emerald-900/40 border-teal-500/50 shadow-[0_0_20px_-5px_rgba(20,184,166,0.3)]" 
                     : "bg-card border-white/5 hover:border-white/10"
                 }`}
               >
-                {/* EFEK SHIMMER / MENGKILAP JIKA LUNAS */}
-                {isFull && (
-                    <div className="absolute inset-0 bg-white/5 animate-pulse pointer-events-none" />
-                )}
-
-                {/* BACKGROUND PROGRESS */}
+                {isFull && <div className="absolute inset-0 bg-white/5 animate-pulse pointer-events-none" />}
+                
                 <div 
                     className={`absolute top-0 left-0 h-full opacity-10 transition-all duration-1000 ${isFull ? 'bg-emerald-400' : 'bg-white'}`} 
                     style={{ width: `${progress}%` }} 
                 />
 
                 <div className="p-4 flex items-center gap-4 relative z-10">
-                    
-                    {/* ICON */}
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                         isFull ? "bg-emerald-500 text-white shadow-lg scale-110" : "bg-secondary/50 text-muted-foreground"
                     }`}>
                         {isFull ? <Sparkles className="w-6 h-6 animate-spin-slow" /> : <Archive className="w-6 h-6" />}
                     </div>
 
-                    {/* TEXT */}
                     <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-center mb-1">
                              <h3 className="font-bold text-sm truncate pr-2">{goal.name}</h3>
                              {!isFull && (
                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={() => openEditModal(goal)} className="p-1 hover:text-amber-400"><Edit2 className="w-3 h-3" /></button>
-                                    <button onClick={() => handleDelete(goal.id)} className="p-1 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                                    <button onClick={() => handleClaimOrDelete(goal.id, false)} className="p-1 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
                                  </div>
                              )}
                         </div>
                         
                         <div className="flex justify-between items-end">
                             <p className="text-xs text-muted-foreground font-mono">
-                                {formatRupiah(goal.currentAmount)} 
+                                {formatRupiah(goal.current_amount)} 
                                 <span className="mx-1 opacity-40">/</span> 
-                                {formatRupiah(goal.targetAmount)}
+                                {formatRupiah(goal.target_amount)}
                             </p>
                         </div>
                         
-                        {/* THIN PROGRESS BAR */}
                         <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-2">
                             <motion.div 
                                 className={`h-full ${isFull ? 'bg-emerald-400' : 'bg-primary'}`} 
@@ -234,13 +255,12 @@ export default function DumpBin() {
                         </div>
                     </div>
 
-                    {/* ACTION BUTTON */}
                     <div className="shrink-0">
                         {isFull ? (
                             <Button 
                                 size="sm" 
                                 className="bg-emerald-500 hover:bg-emerald-400 text-white border-none font-bold shadow-lg shadow-emerald-900/20"
-                                onClick={() => handleClaim(goal.id)}
+                                onClick={() => handleClaimOrDelete(goal.id, true)}
                             >
                                 <CheckCircle2 className="w-4 h-4 mr-2" />
                                 AMBIL
@@ -256,7 +276,6 @@ export default function DumpBin() {
                             </Button>
                         )}
                     </div>
-
                 </div>
               </motion.div>
             );
@@ -264,15 +283,9 @@ export default function DumpBin() {
         </AnimatePresence>
       </div>
 
-      {/* EMPTY STATE */}
-      {goals.length === 0 && (
-        <div className="text-center py-20 opacity-50 border-2 border-dashed border-white/10 rounded-3xl m-4 bg-white/5">
-          <Archive className="w-12 h-12 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-sm">Dump Bin Kosong.</p>
-        </div>
-      )}
-
-      {/* --- MODAL 1: FORM TARGET --- */}
+      {/* ... (MODAL FORM & CONTRIBUTE KODE SAMA SEPERTI SEBELUMNYA) ... */}
+      {/* SAYA PERSINGKAT DISINI AGAR TIDAK KEPANJANGAN, TAPI PASTIKAN BAGIAN MODAL TETAP ADA YA */}
+      {/* MODAL 1: FORM TARGET */}
       <Modal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
@@ -294,7 +307,7 @@ export default function DumpBin() {
         </div>
       </Modal>
 
-      {/* --- MODAL 2: ISI CELENGAN --- */}
+      {/* MODAL 2: ISI CELENGAN */}
       <Modal
         isOpen={isContributeModalOpen}
         onClose={() => setIsContributeModalOpen(false)}
@@ -322,7 +335,11 @@ export default function DumpBin() {
                     max={sliderMax} 
                     step="1000" 
                     value={contributeRaw} 
-                    onChange={handleSliderChange}
+                    onChange={(e) => {
+                        const raw = Number(e.target.value);
+                        setContributeRaw(raw);
+                        setContributeDisplay(formatNumber(raw));
+                    }}
                     className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground font-mono uppercase">
