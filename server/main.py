@@ -1,3 +1,6 @@
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 from contextlib import asynccontextmanager
 from typing import List
 from fastapi import FastAPI, HTTPException
@@ -27,9 +30,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-def read_root():
-    return {"status": "Server Online", "db": "Allocation Relational Ready"}
+# @app.get("/")
+# def read_root():
+#     return {"status": "Server Online", "db": "Allocation Relational Ready"}
 
 # ==========================
 # 1. DUMP BIN (Tabungan)
@@ -184,3 +187,27 @@ def delete_item(item_id: int):
             session.delete(item)
             session.commit()
         return {"ok": True}
+    
+
+client_dist = os.path.join(os.path.dirname(__file__), "..", "client", "dist")
+
+if os.path.exists(client_dist):
+    # 1. Mount folder assets (CSS/JS/Images hasil build)
+    app.mount("/assets", StaticFiles(directory=os.path.join(client_dist, "assets")), name="assets")
+
+    # 2. Catch-All Route: Apapun URL yang diketik user (kecuali API), kirim index.html React
+    @app.get("/{full_path:path}")
+    async def serve_react_app(full_path: str):
+        # Jangan ganggu jalur API!
+        if full_path.startswith("api"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        
+        # Cek jika user meminta file spesifik (misal: favicon.png, robots.txt)
+        file_path = os.path.join(client_dist, full_path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        
+        # Default: Kirim index.html (Agar React Router bekerja)
+        return FileResponse(os.path.join(client_dist, "index.html"))
+else:
+    print("⚠️ Warning: Folder 'client/dist' tidak ditemukan. Jalankan 'npm run build' dulu.")
