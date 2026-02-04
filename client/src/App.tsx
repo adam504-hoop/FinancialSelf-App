@@ -2,54 +2,65 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { useAuth } from "@/hooks/use-auth";
-import { BottomNav } from "@/components/BottomNav";
-
-// Pages
-import Landing from "@/pages/Landing";
+import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Allocator from "@/pages/Allocator";
-import Playing from "@/pages/Playing";
-import DumpBin from "@/pages/DumpBin";
-import Debt from "@/pages/Debt";
-import NotFound from "@/pages/not-found";
-import { Loader2 } from "lucide-react";
+import DebtPage from "@/pages/Debt";
+import DumpBinPage from "@/pages/DumpBin";
+import AuthPage from "@/pages/auth-page"; // Halaman Login baru
+import { AuthProvider, useAuth } from "@/hooks/use-auth"; // Otak Login
+import { Loader2 } from "lucide-react"; // Ikon loading
 
-function Router() {
+// KOMPONEN SATPAM (Protected Route) 👮‍♂️
+// Tugasnya: Cek tiket user. Kalau gak punya tiket, tendang ke /auth
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
 
+  // 1. Kalau masih loading (cek tiket ke server), tampilkan spinner
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  // 2. Kalau tiket gak ada (belum login), lempar ke Auth
   if (!user) {
-    return <Landing />;
+    return <AuthPage />;
   }
 
+  // 3. Kalau aman, silakan masuk
+  return <Component />;
+}
+
+// STRUKTUR UTAMA APLIKASI
+function Router() {
   return (
-    <div className="bg-background min-h-screen font-sans text-foreground">
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/allocator" component={Allocator} />
-        <Route path="/playing" component={Playing} />
-        <Route path="/dump-bin" component={DumpBin} />
-        <Route path="/debt" component={Debt} />
-        <Route component={NotFound} />
-      </Switch>
-      <BottomNav />
-    </div>
+    <Switch>
+      {/* Halaman Login (Bebas akses) */}
+      <Route path="/auth" component={AuthPage} />
+
+      {/* Halaman-halaman Rahasia (Harus Login) */}
+      <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
+      <Route path="/allocator" component={() => <ProtectedRoute component={Allocator} />} />
+      <Route path="/debt" component={() => <ProtectedRoute component={DebtPage} />} />
+      <Route path="/dump-bin" component={() => <ProtectedRoute component={DumpBinPage} />} />
+      
+      {/* Halaman Error 404 */}
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      {/* Bungkus satu aplikasi dengan AuthProvider biar semua komponen tau status login */}
+      <AuthProvider>
+        <Router />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

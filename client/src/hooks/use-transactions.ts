@@ -1,11 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl, type InsertTransaction } from "@shared/routes";
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 export function useTransactions() {
   return useQuery({
     queryKey: [api.transactions.list.path],
     queryFn: async () => {
       const res = await fetch(api.transactions.list.path, { credentials: "include" });
+      headers: getAuthHeaders()
       if (!res.ok) throw new Error("Failed to fetch transactions");
       return api.transactions.list.responses[200].parse(await res.json());
     },
@@ -19,6 +28,7 @@ export function useCreateTransaction() {
       const res = await fetch(api.transactions.create.path, {
         method: api.transactions.create.method,
         headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
         credentials: "include",
       });

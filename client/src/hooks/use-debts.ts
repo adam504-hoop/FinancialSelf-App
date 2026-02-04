@@ -1,12 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl, type InsertDebt } from "@shared/routes";
 
+// --- FUNGSI BANTUAN PENTING ---
+// Ambil token dari saku (LocalStorage) dan bikin header surat jalan
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 export function useDebts() {
   return useQuery({
     queryKey: [api.debts.list.path],
     queryFn: async () => {
-      const res = await fetch(api.debts.list.path, { credentials: "include" });
+      // PENTING: Jangan lupa sertakan headers!
+      const res = await fetch(api.debts.list.path, { 
+        headers: getAuthHeaders() 
+      });
+      
+      if (res.status === 401) throw new Error("Unauthorized");
       if (!res.ok) throw new Error("Failed to fetch debts");
+      
       return api.debts.list.responses[200].parse(await res.json());
     },
   });
@@ -18,9 +34,9 @@ export function useCreateDebt() {
     mutationFn: async (data: InsertDebt) => {
       const res = await fetch(api.debts.create.path, {
         method: api.debts.create.method,
-        headers: { "Content-Type": "application/json" },
+        // Pakai header yang sudah ada tokennya
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
-        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to create debt");
       return api.debts.create.responses[201].parse(await res.json());
@@ -39,9 +55,8 @@ export function usePayDebt() {
       const url = buildUrl(api.debts.payment.path, { id });
       const res = await fetch(url, {
         method: api.debts.payment.method,
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ amount }),
-        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to record payment");
       return api.debts.payment.responses[200].parse(await res.json());
